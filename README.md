@@ -453,6 +453,9 @@ cat response.json
 ```
 snapshot-cleanup/
 ├── README.md
+├── cicd/
+│   ├── roles.yaml                 # IAM roles for CodeBuild/CodePipeline
+│   └── README.md                  # CI/CD setup instructions
 ├── config/
 │   └── prod.json                  # Environment configuration
 ├── infra/
@@ -465,6 +468,25 @@ snapshot-cleanup/
 ├── buildspec-infra.yml            # CodeBuild spec for infrastructure
 └── buildspec-app.yml              # CodeBuild spec for application (uses jq to read config)
 ```
+
+## Deployment Order
+
+**1. Deploy CI/CD Roles (one-time setup):**
+```bash
+aws cloudformation create-stack \
+  --stack-name snapshot-cleanup-cicd-roles \
+  --template-body file://cicd/roles.yaml \
+  --capabilities CAPABILITY_NAMED_IAM
+```
+
+**2. Create S3 bucket for Lambda artifacts:**
+```bash
+aws s3 mb s3://your-lambda-artifacts-bucket
+```
+
+**3. Set up CodeBuild projects using the created roles**
+
+**4. Deploy infrastructure and application via CodeBuild**
 
 ## Cleanup
 
