@@ -111,18 +111,18 @@ Resources:
                   - codestar-connections:UseConnection
                 Resource: !Sub 'arn:aws:codestar-connections:${AWS::Region}:${AWS::AccountId}:connection/*'
 
-  # S3 Bucket for Pipeline Artifacts
-  PipelineArtifactsBucket:
+  # S3 Bucket for Lambda Artifacts
+  LambdaArtifactsBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub '${ProjectName}-pipeline-artifacts-${AWS::AccountId}'
+      BucketName: !Sub '${ProjectName}-lambda-artifacts-${AWS::AccountId}'
       VersioningConfiguration:
         Status: Enabled
       LifecycleConfiguration:
         Rules:
           - Id: DeleteOldArtifacts
             Status: Enabled
-            ExpirationInDays: 30
+            ExpirationInDays: 90
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -158,8 +158,8 @@ Outputs:
     Export:
       Name: !Sub '${ProjectName}-codepipeline-role-name'
 
-  PipelineArtifactsBucketName:
-    Description: S3 Bucket for Pipeline Artifacts
-    Value: !Ref PipelineArtifactsBucket
+  LambdaArtifactsBucketName:
+    Description: S3 Bucket for Lambda Artifacts
+    Value: !Ref LambdaArtifactsBucket
     Export:
-      Name: !Sub '${ProjectName}-pipeline-artifacts-bucket'
+      Name: !Sub '${ProjectName}-lambda-artifacts-bucket'

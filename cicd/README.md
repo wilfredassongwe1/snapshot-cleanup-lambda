@@ -5,8 +5,8 @@ This CloudFormation template creates the necessary IAM roles for the CI/CD pipel
 ## Resources Created
 
 1. **CodeBuild Service Role** - Allows CodeBuild to deploy infrastructure and application
-2. **CodePipeline Service Role** - Allows CodePipeline to orchestrate the deployment
-3. **S3 Bucket** - Stores pipeline artifacts with versioning and lifecycle policies
+2. **CodePipeline Service Role** - Allows CodePipeline to orchestrate the deployment (optional)
+3. **S3 Bucket for Lambda Artifacts** - Stores Lambda deployment packages (.zip files)
 
 ## Deployment
 
@@ -26,14 +26,21 @@ aws cloudformation wait stack-create-complete \
   --stack-name snapshot-cleanup-cicd-roles
 ```
 
-## Get Role ARNs
+## Get Outputs
 
-After deployment, retrieve the role ARNs:
+After deployment, retrieve the bucket name and role ARNs:
 
 ```bash
 aws cloudformation describe-stacks \
   --stack-name snapshot-cleanup-cicd-roles \
   --query 'Stacks[0].Outputs'
+```
+
+**Update config/prod.json with the bucket name:**
+```json
+{
+  "s3_bucket": "snapshot-cleanup-lambda-artifacts-123456789012"
+}
 ```
 
 ## Use in CodeBuild Project

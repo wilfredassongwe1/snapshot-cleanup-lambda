@@ -204,8 +204,8 @@ Automated AWS Lambda function that deletes EC2 snapshots older than a specified 
 
 1. AWS CLI installed and configured
 2. AWS account with appropriate permissions
-3. **IAM roles created** (CodeBuild and optionally CodePipeline)
-4. S3 bucket for Lambda artifacts (update in `config/prod.json`):
+3. **Deploy cicd/roles.yaml FIRST** (creates IAM roles and S3 bucket)
+4. Update `config/prod.json` with the S3 bucket name from cicd stack outputs artifacts (update in `config/prod.json`):
    ```bash
    aws s3 mb s3://your-lambda-artifacts-bucket
    ```
@@ -471,22 +471,46 @@ snapshot-cleanup/
 
 ## Deployment Order
 
-**1. Deploy CI/CD Roles (one-time setup):**
+**IMPORTANT: Deploy in this exact order:**
+
+### Step 1: Deploy CI/CD Roles and S3 Bucket (one-time setup)
+
 ```bash
 aws cloudformation create-stack \
   --stack-name snapshot-cleanup-cicd-roles \
   --template-body file://cicd/roles.yaml \
   --capabilities CAPABILITY_NAMED_IAM
+
+# Wait for completion
+aws cloudformation wait stack-create-complete \
+  --stack-name snapshot-cleanup-cicd-roles
+
+# Get the bucket name
+aws cloudformation describe-stacks \
+  --stack-name snapshot-cleanup-cicd-roles \
+  --query 'Stacks[0].Outputs[?OutputKey==`LambdaArtifactsBucketName`].OutputValue' \
+  --output text
 ```
 
-**2. Create S3 bucket for Lambda artifacts:**
-```bash
-aws s3 mb s3://your-lambda-artifacts-bucket
+### Step 2: Update Configuration
+
+Update `config/prod.json` with the S3 bucket name from Step 1:
+```json
+{
+  "s3_bucket": "snapshot-cleanup-lambda-artifacts-ACCOUNT_ID"
+}
 ```
 
-**3. Set up CodeBuild projects using the created roles**
+### Step 3: Set up CodeBuild Projects
 
-**4. Deploy infrastructure and application via CodeBuild**
+Create two CodeBuild projects using the role from Step 1:
+- **Infra Build**: Uses `buildspec-infra.yml`
+- **App Build**: Uses `buildspec-app.yml`
+
+### Step 4: Run Deployments
+
+1. Run infra CodeBuild project → deploys VPC, IAM roles
+2. Run app CodeBuild project → deploys Lambda, EventBridge
 
 ## Cleanup
 
