@@ -124,11 +124,88 @@ Automated AWS Lambda function that deletes EC2 snapshots older than a specified 
 2. Commit and push changes
 3. CodeBuild pipeline will use new values automatically
 
+## Required IAM Roles
+
+**The deployment requires the following IAM roles with appropriate permissions:**
+
+### 1. CodeBuild Service Role
+
+**Required permissions:**
+- CloudFormation: `cloudformation:*`
+- EC2: `ec2:*` (for VPC resources)
+- IAM: `iam:*` (for creating Lambda execution role)
+- Lambda: `lambda:*`
+- S3: `s3:PutObject`, `s3:GetObject`
+- Logs: `logs:CreateLogGroup`, `logs:CreateLogStream`, `logs:PutLogEvents`
+- Events: `events:*` (for EventBridge rules)
+
+**Trust relationship:**
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "codebuild.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+
+### 2. CodePipeline Service Role (if using CodePipeline)
+
+**Required permissions:**
+- CodeBuild: `codebuild:StartBuild`, `codebuild:BatchGetBuilds`
+- S3: `s3:GetObject`, `s3:PutObject` (for artifacts)
+- CodeCommit/GitHub: Source repository access
+
+**Trust relationship:**
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "codepipeline.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+
+### 3. Lambda Execution Role (created by infra.yaml)
+
+**This role is automatically created by the infrastructure CloudFormation template.**
+
+**Permissions:**
+- EC2: `ec2:DescribeSnapshots`, `ec2:DeleteSnapshot`
+- Logs: `logs:CreateLogGroup`, `logs:CreateLogStream`, `logs:PutLogEvents`
+- VPC: `ec2:CreateNetworkInterface`, `ec2:DescribeNetworkInterfaces`, `ec2:DeleteNetworkInterface`
+
+### Account Access
+
+**All roles need access to the deployment AWS account:**
+- CodeBuild role deploys CloudFormation stacks in the target account
+- CodePipeline role orchestrates the deployment
+- Lambda execution role runs in the target account
+- All resources (VPC, Lambda, EventBridge) are created in the same account
+
+**For cross-account deployments:**
+- Create assume role in target account
+- Grant CodeBuild/CodePipeline permission to assume that role
+- Use `--role-arn` in CloudFormation deploy commands
+
 ## Prerequisites
 
 1. AWS CLI installed and configured
 2. AWS account with appropriate permissions
-3. S3 bucket for Lambda artifacts (update in `config/prod.json`):
+3. **IAM roles created** (CodeBuild and optionally CodePipeline)
+4. S3 bucket for Lambda artifacts (update in `config/prod.json`):
    ```bash
    aws s3 mb s3://your-lambda-artifacts-bucket
    ```
