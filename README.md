@@ -96,11 +96,39 @@ Automated AWS Lambda function that deletes EC2 snapshots older than a specified 
   - `app.yaml`: Application (Lambda, EventBridge, CloudWatch)
 - Separation allows independent updates to infrastructure vs application code
 
+## Configuration Management
+
+**This project uses `config.json` for environment-specific configuration.**
+
+**Why config.json:**
+- Version controlled with code
+- Easy to review changes in PRs
+- No AWS API calls needed during deployment
+- Simple to use with `jq` in CodeBuild
+- Transparent and self-documenting
+
+**Configuration file:** `config/prod.json`
+```json
+{
+  "environment": "prod",
+  "retention_days": 365,
+  "cron_schedule": "cron(0 2 * * ? *)",
+  "s3_bucket": "your-lambda-artifacts-bucket",
+  "vpc_cidr": "10.0.0.0/16",
+  "subnet_cidr": "10.0.1.0/24"
+}
+```
+
+**To modify configuration:**
+1. Edit `config/prod.json`
+2. Commit and push changes
+3. CodeBuild pipeline will use new values automatically
+
 ## Prerequisites
 
 1. AWS CLI installed and configured
 2. AWS account with appropriate permissions
-3. S3 bucket for Lambda artifacts (create if needed):
+3. S3 bucket for Lambda artifacts (update in `config/prod.json`):
    ```bash
    aws s3 mb s3://your-lambda-artifacts-bucket
    ```
@@ -348,6 +376,8 @@ cat response.json
 ```
 snapshot-cleanup/
 ├── README.md
+├── config/
+│   └── prod.json                  # Environment configuration
 ├── infra/
 │   └── infra.yaml                 # Infrastructure CloudFormation template
 ├── app/
@@ -356,7 +386,7 @@ snapshot-cleanup/
 │       ├── lambda_function.py     # Lambda function code
 │       └── requirements.txt       # Python dependencies
 ├── buildspec-infra.yml            # CodeBuild spec for infrastructure
-└── buildspec-app.yml              # CodeBuild spec for application
+└── buildspec-app.yml              # CodeBuild spec for application (uses jq to read config)
 ```
 
 ## Cleanup
