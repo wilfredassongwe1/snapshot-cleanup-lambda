@@ -4,8 +4,13 @@ phases:
   pre_build:
     commands:
       - echo "Starting Lambda deployment process"
+      - ENVIRONMENT=prod
       - COMMIT_ID=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
-      - S3_BUCKET="your-lambda-artifacts-bucket"
+      
+      # Load configuration from JSON
+      - RETENTION_DAYS=$(jq -r .retention_days config/${ENVIRONMENT}.json)
+      - CRON_SCHEDULE=$(jq -r .cron_schedule config/${ENVIRONMENT}.json)
+      - S3_BUCKET=$(jq -r .s3_bucket config/${ENVIRONMENT}.json)
       - S3_KEY="snapshot-cleanup/lambda-function-${COMMIT_ID}.zip"
       
   build:
@@ -27,9 +32,11 @@ phases:
           --stack-name snapshot-cleanup-app \
           --template-file app/app.yaml \
           --parameter-overrides \
-            Environment=prod \
+            Environment=${ENVIRONMENT} \
             LambdaS3Bucket=${S3_BUCKET} \
             LambdaS3Key=${S3_KEY} \
+            SnapshotRetentionDays=${RETENTION_DAYS} \
+            ScheduleExpression="${CRON_SCHEDULE}" \
           --no-fail-on-empty-changeset
 
 artifacts:

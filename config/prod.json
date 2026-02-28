@@ -1,0 +1,8 @@
+{
+  "environment": "prod",
+  "retention_days": 365,
+  "cron_schedule": "cron(0 2 * * ? *)",
+  "s3_bucket": "your-lambda-artifacts-bucket",
+  "vpc_cidr": "10.0.0.0/16",
+  "subnet_cidr": "10.0.1.0/24"
+}
