@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Application stack for EC2 Snapshot Cleanup Lambda - Lambda Function, EventBridge Rule, CloudWatch Logs'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    Description: Environment name
+  
+  LambdaS3Bucket:
+    Type: String
+    Description: S3 bucket containing Lambda deployment package
+  
+  LambdaS3Key:
+    Type: String
+    Default: snapshot-cleanup/lambda-function.zip
+    Description: S3 key for Lambda deployment package
+  
+  ScheduleExpression:
+    Type: String
+    Default: 'cron(0 2 * * ? *)'
+    Description: Schedule for Lambda execution (default is daily at 2 AM UTC)
+  
+  SnapshotRetentionDays:
+    Type: Number
+    Default: 365
+    Description: Number of days to retain snapshots before deletion
+
+Resources:
+  # CloudWatch Log Group
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${Environment}-snapshot-cleanup'
+      RetentionInDays: 30
+
+  # Lambda Function
+  SnapshotCleanupFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${Environment}-snapshot-cleanup'
+      Runtime: python3.11
+      Handler: lambda_function.lambda_handler
+      Role: !ImportValue 
+        Fn::Sub: '${Environment}-snapshot-cleanup-lambda-role-arn'
+      Code:
+        S3Bucket: !Ref LambdaS3Bucket
+        S3Key: !Ref LambdaS3Key
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          RETENTION_DAYS: !Ref SnapshotRetentionDays
+          LOG_LEVEL: INFO
+      VpcConfig:
+        SubnetIds:
+          - !ImportValue 
+              Fn::Sub: '${Environment}-snapshot-cleanup-private-subnet-id'
+        SecurityGroupIds:
+          - !ImportValue 
+              Fn::Sub: '${Environment}-snapshot-cleanup-lambda-sg-id'
+
+  # EventBridge Rule (Daily Schedule)
+  SnapshotCleanupScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${Environment}-snapshot-cleanup-schedule'
+      Description: Trigger snapshot cleanup Lambda function on a daily schedule
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt SnapshotCleanupFunction.Arn
+          Id: SnapshotCleanupLambdaTarget
+
+  # Permission for EventBridge to invoke Lambda
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SnapshotCleanupFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt SnapshotCleanupScheduleRule.Arn
+
+Outputs:
+  LambdaFunctionArn:
+    Description: Lambda Function ARN
+    Value: !GetAtt SnapshotCleanupFunction.Arn
+    Export:
+      Name: !Sub '${Environment}-snapshot-cleanup-lambda-arn'
+
+  LambdaFunctionName:
+    Description: Lambda Function Name
+    Value: !Ref SnapshotCleanupFunction
+
+  ScheduleRuleArn:
+    Description: EventBridge Schedule Rule ARN
+    Value: !GetAtt SnapshotCleanupScheduleRule.Arn
+
+  LogGroupName:
+    Description: CloudWatch Log Group Name
+    Value: !Ref LambdaLogGroup

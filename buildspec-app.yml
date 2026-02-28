@@ -1,0 +1,37 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo "Starting Lambda deployment process"
+      - COMMIT_ID=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - S3_BUCKET="your-lambda-artifacts-bucket"
+      - S3_KEY="snapshot-cleanup/lambda-function-${COMMIT_ID}.zip"
+      
+  build:
+    commands:
+      - echo "Packaging Lambda function"
+      - cd app/lambda
+      - pip install -r requirements.txt -t .
+      - zip -r ../../lambda-function.zip .
+      - cd ../..
+      
+      - echo "Uploading to S3"
+      - aws s3 cp lambda-function.zip s3://${S3_BUCKET}/${S3_KEY}
+      
+  deploy:
+    commands:
+      - echo "Deploying CloudFormation stack"
+      - |
+        aws cloudformation deploy \
+          --stack-name snapshot-cleanup-app \
+          --template-file app/app.yaml \
+          --parameter-overrides \
+            Environment=prod \
+            LambdaS3Bucket=${S3_BUCKET} \
+            LambdaS3Key=${S3_KEY} \
+          --no-fail-on-empty-changeset
+
+artifacts:
+  files:
+    - lambda-function.zip

@@ -1,0 +1,15 @@
+version: 0.2
+
+phases:
+  deploy:
+    commands:
+      - echo "Deploying infrastructure stack"
+      - |
+        aws cloudformation deploy \
+          --stack-name snapshot-cleanup-infra \
+          --template-file infra/infra.yaml \
+          --capabilities CAPABILITY_NAMED_IAM \
+          --parameter-overrides \
+            Environment=prod \
+          --no-fail-on-empty-changeset
+      - echo "Infrastructure deployment complete"
